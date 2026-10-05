@@ -1,0 +1,523 @@
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local localPlayer = Players.LocalPlayer
+local mouse = localPlayer:GetMouse()
+
+-- Biến Trạng Thái Toggles
+local noclipEnabled = false
+local wallWalkEnabled = false
+local swimEnabled = false
+local autoClaimCoinsEnabled = false
+local autoSmartItemsEnabled = false -- Toggle Smart Auto Items
+
+-- Remote Event
+local mapRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("mapManagerRemote")
+
+-- Danh sách các vật phẩm cần kiểm tra và duy trì
+local requiredTools = {
+    "Gold Carpet",
+    "Squid Game Slap",
+    "Classic Timebomb"
+}
+
+-- =========================================================
+-- 1. TẠO GIAO DIỆN MENU (UI) - VERSION 12
+-- =========================================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DeltaXMultiToolUI_v12"
+screenGui.Parent = (gethui and gethui()) or CoreGui or localPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 270, 0, 500)
+mainFrame.Position = UDim2.new(0.15, 0, 0.15, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+
+-- Title Bar
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -30, 0, 35)
+title.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+title.Text = "  Delta X Super Menu v12"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 14
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = mainFrame
+
+Instance.new("UICorner", title).CornerRadius = UDim.new(0, 8)
+
+-- Close Button (X)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 35)
+closeBtn.Position = UDim2.new(1, -30, 0, 0)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 14
+closeBtn.Parent = mainFrame
+
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+
+-- Open Button
+local openBtn = Instance.new("TextButton")
+openBtn.Size = UDim2.new(0, 90, 0, 30)
+openBtn.Position = UDim2.new(0, 10, 0.5, 0)
+openBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+openBtn.Text = "Open Menu"
+openBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+openBtn.Font = Enum.Font.SourceSansBold
+openBtn.TextSize = 12
+openBtn.Visible = false
+openBtn.Parent = screenGui
+
+Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0, 6)
+
+-- Scroll Container Main
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1, -10, 1, -45)
+scroll.Position = UDim2.new(0, 5, 0, 40)
+scroll.BackgroundTransparency = 1
+scroll.CanvasSize = UDim2.new(0, 0, 0, 820)
+scroll.ScrollBarThickness = 4
+scroll.Parent = mainFrame
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = scroll
+
+local function createButton(text)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.95, 0, 0, 32)
+    btn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 13
+    btn.Parent = scroll
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local function createSectionTitle(text)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.95, 0, 0, 20)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "--- " .. text .. " ---"
+    lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+    lbl.Font = Enum.Font.SourceSansBold
+    lbl.TextSize = 11
+    lbl.Parent = scroll
+    return lbl
+end
+
+-- =========================================================
+-- DANH SÁCH TÍNH NĂNG
+-- =========================================================
+
+-- Movement
+createSectionTitle("Movement / Di Chuyển")
+local btnNoclip = createButton("Noclip (Đi Xuyên Tường): OFF")
+local btnWallWalk = createButton("Wall Walk (Đi Trên Tường): OFF")
+local btnSwim = createButton("Swim In Air (Bơi Trên Không): OFF")
+
+-- Smart Auto Tools & Coins
+createSectionTitle("Smart Auto Claim")
+local btnSmartItems = createButton("Smart Auto 3 Tools (Tự Lấy Khi Thiếu): OFF")
+btnSmartItems.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+
+local btnAutoCoins = createButton("Auto 8k Coins (90s): OFF")
+btnAutoCoins.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+
+-- Teleport Controls
+createSectionTitle("Teleport Controls")
+local tpInput = Instance.new("TextBox")
+tpInput.Size = UDim2.new(0.95, 0, 0, 32)
+tpInput.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+tpInput.PlaceholderText = "Nhập tên người chơi để TP..."
+tpInput.Text = ""
+tpInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpInput.Font = Enum.Font.SourceSans
+tpInput.TextSize = 13
+tpInput.Parent = scroll
+Instance.new("UICorner", tpInput).CornerRadius = UDim.new(0, 6)
+
+local btnTPName = createButton("Teleport Tới Người Chơi")
+btnTPName.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+
+local smartTPFrame = Instance.new("Frame")
+smartTPFrame.Size = UDim2.new(0.95, 0, 0, 100)
+smartTPFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+smartTPFrame.Parent = scroll
+Instance.new("UICorner", smartTPFrame).CornerRadius = UDim.new(0, 6)
+
+local smartScroll = Instance.new("ScrollingFrame")
+smartScroll.Size = UDim2.new(1, -6, 1, -6)
+smartScroll.Position = UDim2.new(0, 3, 0, 3)
+smartScroll.BackgroundTransparency = 1
+smartScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+smartScroll.ScrollBarThickness = 3
+smartScroll.Parent = smartTPFrame
+
+local smartLayout = Instance.new("UIListLayout")
+smartLayout.Padding = UDim.new(0, 4)
+smartLayout.Parent = smartScroll
+
+local btnTPTool = createButton("Nhận TP Tool (Click để TP)")
+btnTPTool.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
+
+-- Player List 3D
+createSectionTitle("Player List (3D View & Instant TP)")
+local playerListFrame = Instance.new("Frame")
+playerListFrame.Size = UDim2.new(0.95, 0, 0, 160)
+playerListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+playerListFrame.Parent = scroll
+Instance.new("UICorner", playerListFrame).CornerRadius = UDim.new(0, 6)
+
+local playerListScroll = Instance.new("ScrollingFrame")
+playerListScroll.Size = UDim2.new(1, -6, 1, -6)
+playerListScroll.Position = UDim2.new(0, 3, 0, 3)
+playerListScroll.BackgroundTransparency = 1
+playerListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+playerListScroll.ScrollBarThickness = 3
+playerListScroll.Parent = playerListFrame
+
+local playerListLayout = Instance.new("UIListLayout")
+playerListLayout.Padding = UDim.new(0, 6)
+playerListLayout.Parent = playerListScroll
+
+-- =========================================================
+-- LOGIC KIỂM TRA & AUTO CLAIM THÔNG MINH (V12)
+-- =========================================================
+
+-- Hàm kiểm tra người chơi có sở hữu vật phẩm không
+local function hasTool(toolName)
+    local backpack = localPlayer:FindFirstChild("Backpack")
+    local character = localPlayer.Character
+    
+    if backpack and backpack:FindFirstChild(toolName) then
+        return true
+    end
+    if character and character:FindFirstChild(toolName) then
+        return true
+    end
+    return false
+end
+
+-- Hàm tìm danh sách vật phẩm đang bị thiếu
+local function getMissingTools()
+    local missing = {}
+    for _, toolName in ipairs(requiredTools) do
+        if not hasTool(toolName) then
+            table.insert(missing, toolName)
+        end
+    end
+    return missing
+end
+
+-- Vòng lặp Smart Auto Check & Claim Items
+task.spawn(function()
+    while true do
+        if autoSmartItemsEnabled then
+            pcall(function()
+                local missingTools = getMissingTools()
+                
+                -- Nếu phát hiện thiếu ít nhất 1 vật phẩm
+                if #missingTools > 0 then
+                    local char = localPlayer.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    
+                    if hrp then
+                        -- 1. Lưu lại vị trí đứng cuối cùng trước khi bị dịch chuyển
+                        local originalCFrame = hrp.CFrame
+                        
+                        -- 2. Dịch chuyển lấy từng vật phẩm thiếu
+                        for _, toolName in ipairs(missingTools) do
+                            local itemGiver = workspace:FindFirstChild(toolName, true) or workspace:FindFirstChild(toolName .. "Giver", true)
+                            if itemGiver then
+                                local targetCFrame = itemGiver:IsA("BasePart") and itemGiver.CFrame or itemGiver:GetPivot()
+                                hrp.CFrame = targetCFrame * CFrame.new(0, 3, 0)
+                                task.wait(0.25)
+                            end
+                            
+                            -- Bắn Remote lấy đồ
+                            mapRemote:FireServer("claimTool", toolName)
+                            task.wait(0.25)
+                        end
+                        
+                        -- 3. Kiểm tra tổng quát lại một lần nữa
+                        task.wait(0.2)
+                        local recheckMissing = getMissingTools()
+                        
+                        -- 4. Nếu đã lấy đủ (hoặc xong lượt) -> Quay về vị trí cũ ngay lập tức
+                        if hrp and hrp.Parent then
+                            hrp.CFrame = originalCFrame
+                        end
+                    end
+                end
+            end)
+            task.wait(2) -- Kiểm tra lại túi đồ mỗi 2 giây
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+-- Loop Auto 8k Coins (90s Cooldown)
+task.spawn(function()
+    while true do
+        if autoClaimCoinsEnabled then
+            pcall(function()
+                local char = localPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local lastCFrame = hrp.CFrame
+                    local targetGiver = workspace:FindFirstChild("8kCoinsGiver", true)
+                    if targetGiver then
+                        local targetCFrame = targetGiver:IsA("BasePart") and targetGiver.CFrame or targetGiver:GetPivot()
+                        hrp.CFrame = targetCFrame * CFrame.new(0, 3, 0)
+                        task.wait(0.25)
+                    end
+                    mapRemote:FireServer("claimCoins", "8kCoinsGiver")
+                    task.wait(0.2)
+                    hrp.CFrame = lastCFrame
+                end
+            end)
+            task.wait(90)
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+-- Events Nút Bấm Toggle
+btnSmartItems.MouseButton1Click:Connect(function()
+    autoSmartItemsEnabled = not autoSmartItemsEnabled
+    btnSmartItems.Text = autoSmartItemsEnabled and "Smart Auto 3 Tools: ON" or "Smart Auto 3 Tools (Tự Lấy Khi Thiếu): OFF"
+    btnSmartItems.BackgroundColor3 = autoSmartItemsEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50)
+end)
+
+btnAutoCoins.MouseButton1Click:Connect(function()
+    autoClaimCoinsEnabled = not autoClaimCoinsEnabled
+    btnAutoCoins.Text = autoClaimCoinsEnabled and "Auto 8k Coins: ON" or "Auto 8k Coins (90s): OFF"
+    btnAutoCoins.BackgroundColor3 = autoClaimCoinsEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50)
+end)
+
+-- =========================================================
+-- CÁC TÍNH NĂNG MOVEMENT & TELEPORT KHÁC
+-- =========================================================
+
+-- Noclip
+RunService.Stepped:Connect(function()
+    if noclipEnabled and localPlayer.Character then
+        for _, part in ipairs(localPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+btnNoclip.MouseButton1Click:Connect(function()
+    noclipEnabled = not noclipEnabled
+    btnNoclip.Text = noclipEnabled and "Noclip: ON" or "Noclip (Đi Xuyên Tường): OFF"
+    btnNoclip.BackgroundColor3 = noclipEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50)
+end)
+
+-- Wall Walk
+RunService.RenderStepped:Connect(function()
+    if wallWalkEnabled and localPlayer.Character then
+        local hrp = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterAncestorsInstances = {localPlayer.Character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+            local rayResult = workspace:Raycast(hrp.Position, hrp.CFrame.LookVector * 3, raycastParams)
+            if rayResult and rayResult.Instance then
+                local normal = rayResult.Normal
+                hrp.CFrame = CFrame.new(hrp.Position, hrp.Position - normal) * CFrame.Angles(math.rad(90), 0, 0)
+            end
+        end
+    end
+end)
+
+btnWallWalk.MouseButton1Click:Connect(function()
+    wallWalkEnabled = not wallWalkEnabled
+    btnWallWalk.Text = wallWalkEnabled and "Wall Walk: ON" or "Wall Walk (Đi Trên Tường): OFF"
+    btnWallWalk.BackgroundColor3 = wallWalkEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50)
+end)
+
+-- Swim In Air
+RunService.RenderStepped:Connect(function()
+    if swimEnabled and localPlayer.Character then
+        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+        end
+    end
+end)
+
+btnSwim.MouseButton1Click:Connect(function()
+    swimEnabled = not swimEnabled
+    btnSwim.Text = swimEnabled and "Swim In Air: ON" or "Swim In Air (Bơi Trên Không): OFF"
+    btnSwim.BackgroundColor3 = swimEnabled and Color3.fromRGB(50, 180, 50) or Color3.fromRGB(180, 50, 50)
+end)
+
+-- TP Player By Name
+btnTPName.MouseButton1Click:Connect(function()
+    local targetText = tpInput.Text:lower():gsub("%s+", "")
+    if targetText == "" then return end
+
+    for _, target in ipairs(Players:GetPlayers()) do
+        if target ~= localPlayer and (target.Name:lower():find(targetText) or target.DisplayName:lower():find(targetText)) then
+            if target.Character and target.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                localPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+            end
+            break
+        end
+    end
+end)
+
+-- Smart Distance TP List
+local function updateSmartTPList()
+    for _, child in ipairs(smartScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    local myHRP = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+
+    local count = 0
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            count = count + 1
+            local targetHRP = player.Character.HumanoidRootPart
+            local distance = (myHRP.Position - targetHRP.Position).Magnitude
+
+            local itemFrame = Instance.new("Frame")
+            itemFrame.Size = UDim2.new(1, -5, 0, 30)
+            itemFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+            itemFrame.Parent = smartScroll
+            Instance.new("UICorner", itemFrame).CornerRadius = UDim.new(0, 4)
+
+            local pName = Instance.new("TextLabel")
+            pName.Size = UDim2.new(0.65, 0, 0.7, 0)
+            pName.Position = UDim2.new(0.02, 0, 0.05, 0)
+            pName.Text = player.DisplayName .. " (" .. math.floor(distance) .. "s)"
+            pName.TextColor3 = Color3.fromRGB(255, 255, 255)
+            pName.Font = Enum.Font.SourceSans
+            pName.TextSize = 11
+            pName.TextXAlignment = Enum.TextXAlignment.Left
+            pName.Parent = itemFrame
+
+            local tpBtn = Instance.new("TextButton")
+            tpBtn.Size = UDim2.new(0.28, 0, 0.8, 0)
+            tpBtn.Position = UDim2.new(0.7, 0, 0.1, 0)
+            tpBtn.Text = "TP"
+            tpBtn.Font = Enum.Font.SourceSansBold
+            tpBtn.TextSize = 11
+            tpBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+            tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            tpBtn.Parent = itemFrame
+            Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 4)
+
+            tpBtn.MouseButton1Click:Connect(function()
+                if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    localPlayer.Character.HumanoidRootPart.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
+                end
+            end)
+        end
+    end
+    smartScroll.CanvasSize = UDim2.new(0, 0, 0, count * 34)
+end
+
+-- TP Tool Equipment
+local function equipTPTool()
+    local backpack = localPlayer:WaitForChild("Backpack")
+    local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+
+    if backpack:FindFirstChild("TP") or (character and character:FindFirstChild("TP")) then return end
+
+    local tool = Instance.new("Tool")
+    tool.Name = "TP"
+    tool.RequiresHandle = false
+
+    tool.Activated:Connect(function()
+        local pos = mouse.Hit.Position
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+        end
+    end)
+
+    tool.Parent = backpack
+end
+
+RunService.Stepped:Connect(function() pcall(equipTPTool) end)
+
+btnTPTool.MouseButton1Click:Connect(function()
+    equipTPTool()
+    btnTPTool.Text = "Đã Cấp TP Tool!"
+    task.wait(1.5)
+    btnTPTool.Text = "Nhận TP Tool (Click để TP)"
+end)
+
+-- Player List 3D View
+local selectedPlayerCard = nil
+local function updatePlayer3DList()
+    for _, child in ipairs(playerListScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    local totalHeight = 0
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer then
+            local card = Instance.new("Frame")
+            card.Size = UDim2.new(1, -5, 0, 40)
+            card.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+            card.ClipsDescendants = true
+            card.Parent = playerListScroll
+            Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+            local vp = Instance.new("ViewportFrame")
+            vp.Size = UDim2.new(0, 36, 0, 36)
+            vp.Position = UDim2.new(0, 2, 0, 2)
+            vp.BackgroundTransparency = 1
+            vp.Parent = card
+
+            if player.Character then
+                player.Character.Archivable = true
+                local charClon = player.Character:Clone()
+                charClon.Parent = vp
+
+                local cam = Instance.new("Camera")
+                cam.Parent = vp
+                vp.CurrentCamera = cam
+
+                local head = charClon:FindFirstChild("Head") or charClon:FindFirstChild("HumanoidRootPart")
+                if head then
+                    cam.CFrame = CFrame.new(head.Position + Vector3.new(0, 0.5, 2.5), head.Position)
+                end
+            end
+
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(0.6, 0, 0.8, 0)
+            nameLabel.Position = UDim2.new(0, 42, 0, 4)
+            nameLabel.Text = player.DisplayName .. "\n@" .. player.Name
+            nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            nameLabel.Font = Enum.Font.SourceSansBold
+            nameLabel.TextSize = 11
+            nameLabel.TextXAlignment = Enum.TextXAlig
